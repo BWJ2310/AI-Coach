@@ -1,0 +1,581 @@
+{% extends "layout/ai-coach.html" %}
+{% block content %}
+<script>
+{{ set(UiContext, {
+  problemId: pdoc.pid|default(pdoc.docId),
+  problemNumId: pdoc.docId,
+  codeLang: handler.user.codeLang,
+  codeTemplate: handler.user.codeTemplate,
+  pdoc: pdoc
+}) }}
+{% if tdoc %}
+  {{ set(UiContext, 'canViewRecord', model.contest.canShowSelfRecord.call(handler, tdoc)) }}
+  {{ set(UiContext, 'postSubmitUrl', url('problem_submit', pid=pdoc.docId, query={tid:tdoc.docId})) }}
+  {{ set(UiContext, 'getSubmissionsUrl', url('record_main', query={fullStatus:'true', pid:pdoc.docId, tid:tdoc.docId})) }}
+  {{ set(UiContext, 'getRecordDetailUrl', url('record_detail', rid='{rid}', query={tid:tdoc.docId})) }}
+  {{ set(UiContext, 'pretestConnUrl', "record-conn?pretest=1&uidOrName=" + handler.user._id + "&pid=" + pdoc.docId + "&domainId=" + handler.args.domainId + "&tid=" + tdoc.docId) }}
+  {{ set(UiContext, 'tdoc', tdoc) }}
+  {{ set(UiContext, 'tsdoc', tsdoc) }}
+{% else %}
+  {{ set(UiContext, 'canViewRecord', true) }}
+  {{ set(UiContext, 'postSubmitUrl', url('problem_submit', pid=pdoc.docId)) }}
+  {{ set(UiContext, 'getSubmissionsUrl', url('record_main', query={fullStatus:'true', pid:pdoc.docId})) }}
+  {{ set(UiContext, 'getRecordDetailUrl', url('record_detail', rid='{rid}')) }}
+  {{ set(UiContext, 'pretestConnUrl', "record-conn?pretest=1&uidOrName=" + handler.user._id + "&pid=" + pdoc.docId + "&domainId=" + handler.args.domainId) }}
+{% endif %}
+
+
+
+</script>
+<div class="row" data-sticky-parent>
+  <div class="medium-9 columns">
+    <div class="section">
+      <div class="section__header">
+        <h1 class="section__title">
+          {% if rdoc %}
+            <a href="{{ url('record_detail', {rid:rdoc._id}) }}">
+              <span class="icon record-status--icon {{ model.builtin.STATUS_CODES[rdoc['status']] }}"></span>
+              <span class="record-status--text {{ model.builtin.STATUS_CODES[rdoc['status']] }}">{{ rdoc.score }}</span>
+            </a>
+          {% endif %}
+          {% if handler.user.hasPriv(PRIV.PRIV_USER_PROFILE) and not tdoc %}
+            <form class="form--inline" action="" method="post">
+              <input type="hidden" name="star" value="{{ 'true' if not psdoc.star else 'false' }}">
+              <input type="hidden" name="operation" value="star">
+              <button class="star{% if psdoc.star %} activated{% endif %}" type="submit">
+                <span class="starred--hide"><span class="icon icon-star--outline" data-tooltip="{{ _('Star') }}"></span></span>
+                <span class="starred--show"><span class="icon icon-star" data-tooltip="{{ _('Unstar') }}"></span></span>
+              </button>
+            </form>
+          {% endif %}
+          {%- if tdoc -%}
+            {{ String.fromCharCode(65+tdoc.pids.indexOf(pdoc.docId)) }}
+          {%- elif pdoc.pid and pdoc.pid.includes('-') -%}
+            {{ pdoc.pid.split('-').join('#') }}
+          {%- else -%}
+            #{{ pdoc.pid|default(pdoc.docId) }}
+          {%- endif -%}. {{ pdoc.title }}
+        </h1>
+        {% if tdoc and tdoc.pids|length <= 26 %}
+          <div class="section__tools contest-problems">
+            {% for pid in tdoc.pids -%}
+              {% set status = tsdoc.detail[pid].status %}
+              {% set pass = status == STATUS.STATUS_ACCEPTED %}
+              {% set fail = status and not pass %}
+              <a href="{{ url('problem_detail', pid=pid, query={tid:tdoc.docId}) }}"
+                 class="{% if pass %}pass{% elif fail %}fail{% endif %}
+                        {% if pid==pdoc.docId %} active{% endif %}">
+                <span class="id">{{ String.fromCharCode(65+loop.index0) }}</span>
+                {% if status %}<span class="icon icon-{% if pass %}check{% else %}close{% endif %}"></span>{% endif %}
+              </a>
+            {%- endfor %}
+          </div>
+        {% endif %}
+      </div>
+      <div class="section__body">
+        <ul class="problem__tags">
+          {% if not tdoc %}
+            <span class="bp5-tag bp5-large bp5-minimal problem__tag-item">{{ _('ID') }}: {{ pdoc.docId }}</span>
+          {% endif %}
+          <span class="bp5-tag bp5-large bp5-minimal problem__tag-item icon icon-book">{{ _('problem_type.' + pdoc.config.type).format(pdoc.config.subType) }}</span>
+          {% if pdoc.config.type == 'default' and pdoc.config.subType %}
+            <span class="bp5-tag bp5-large bp5-minimal problem__tag-item icon icon-book">{{ _('File IO: {0}').format(pdoc.config.subType) }}</span>
+          {% endif %}
+          {% if pdoc.config.type != 'objective' and pdoc.config.type != 'submit_answer' %}
+            <span class="bp5-tag bp5-large bp5-minimal problem__tag-item icon icon-stopwatch">{{ pdoc.config.timeMax if pdoc.config.timeMax == pdoc.config.timeMin else pdoc.config.timeMin+'~'+pdoc.config.timeMax }}ms</span>
+            <span class="bp5-tag bp5-large bp5-minimal problem__tag-item icon icon-comparison">{{ pdoc.config.memoryMax if pdoc.config.memoryMax == pdoc.config.memoryMin else pdoc.config.memoryMin+'~'+pdoc.config.memoryMax }}MiB</span>
+          {% endif %}
+          {% if not tdoc %}
+            <a class="bp5-tag bp5-large bp5-minimal bp5-interactive problem__tag-item" href="{{ url('record_main', query={pid:pdoc.docId}) }}">{{ _('Tried') }}: {{ pdoc.nSubmit }}</a>
+            <a class="bp5-tag bp5-large bp5-minimal bp5-interactive problem__tag-item" href="{{ url('record_main', query={pid:pdoc.docId, status:1}) }}">{{ _('Accepted') }}: {{ pdoc.nAccept if ((not tdoc) or showAccept) else '?' }}</a>
+            <span class="bp5-tag bp5-large bp5-minimal problem__tag-item">{{ _('Difficulty') }}: {{ pdoc['difficulty'] or lib.difficulty(pdoc.nSubmit, pdoc.nAccept) or _('(None)') }}</span>
+            <span class="bp5-tag bp5-large bp5-minimal bp5-interactive problem__tag-item">{{ _('Uploaded By') }}: {{ user.render_inline(udoc, badge=false) }}</span>
+          {% endif %}
+          {% if pdoc.tag.length %}
+            <span name="show_tags" class="bp5-tag bp5-large bp5-minimal bp5-interactive problem__tag-item nojs--hide icon icon-tag">{{ _('Tags') + '>' }}</span>
+            {%- for tag in pdoc.tag -%}
+              <span class="bp5-tag bp5-large bp5-minimal problem__tag-item tags hasjs--hide">{{ tag }}</span>
+            {%- endfor -%}
+          {% endif %}
+        </ul>
+      </div>
+    </div>
+    <div class="section">
+      <div class="problem-content-container"><div class="problem-content" data-marker-enabled>
+        <div class="section__header non-scratchpad--hide">
+          <h1 class="section__title">{{ pdoc.title }}</h1>
+        </div>
+        {% if pdoc.content|contentLang|length > 1 %}
+        <div class="section__tab-container">
+          <div class="section__tab-header-wrapper">
+            <ul class="section__tab-header flex-row">
+              {% for k in pdoc.content|contentLang %}
+              <a class="section__tab-header-item {{'tab--active' if (handler.request.query.lang or handler.user.viewLang or handler.session.viewLang or (pdoc.content|contentLang)[0] ) == k }}" data-lang="{{ k }}" href="./{{pdoc.pid|default(pdoc.docId)}}?lang={{k}}">
+                {{ model.setting.SETTINGS_BY_KEY['viewLang'].range[k] }}
+              </a>
+              {% endfor %}
+            </ul>
+          </div>
+        </div>
+        {% endif %}
+        {% include "partials/problem_description.html" %}
+      </div></div>
+    </div>
+  </div>
+  <div class="medium-3 columns"><div data-sticky="large">
+    {% include "partials/problem_sidebar.html" %}
+  </div></div>
+</div>
+<div style="display:none" class="outer-loader-container"><div class="loader"></div></div>
+<div class="scratchpad-container" style="display:none;">
+  <div style="display:none" class="loader-container"><div class="loader"></div></div>
+  <div id="scratchpad" style="opacity:0;"></div>
+
+  <button id="openChat" class="chat-toggle-button" >
+    <txt alt="Open Chat"> <txt>✨</txt> 
+  </button>
+
+
+<div  id="chatContainer" style="width:25%; height: 95%; right:0px; bottom:0px; position:absolute; display: none;">
+  <div class="chat-container">
+    
+    <div class="chat-header">
+      
+      <button id="closeChat" class="closeIcon">
+ <txt alt="Close Chat"> ✖ </txt>
+      </button>
+
+      <h1>✨ Leaps AI-Coach</h1>
+    </div>
+    <div class="chat-messages" id="chatMessages">
+      
+    </div>
+    <div class="chat-input-container">
+      <textarea id="messageInput" placeholder="Type your message..." rows="1"></textarea>
+      <button id="sendButton" class="send-button">Send</button>
+    </div>
+  </div>
+  </div>
+
+</div>
+
+<style>
+.chat-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+.chat-header {
+  padding: 12px 16px;
+  border-radius: 15px;
+  margin:5px;
+  text-align: center;
+  background-color: #00259e75;
+}
+
+.chat-header h1 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: bold;
+}
+
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.message {
+  max-width: 80%;
+  margin: 4px 0;
+}
+
+.ai-message {
+  align-self: flex-start;
+}
+
+.user-message {
+  align-self: flex-end;
+}
+
+.avatar-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.avatar {
+  width: 32px;
+  height: 32px;
+  background-color: #00259e;
+  border-radius: 50%;
+  padding: 4px;
+}
+
+.ai-name {
+  font-size: 14px;
+}
+
+.message-content {
+  padding: 12px 16px;
+  border-radius: 12px;
+  line-height: 1.4;
+}
+
+.ai-message .message-content {
+  background-color: #2d2d2d55;
+}
+
+.user-message .message-content {
+  background-color: #2563eb55;
+}
+
+.chat-input-container {
+  padding: 16px;
+  border-top: 1px solid #32323255;
+  position: relative;
+}
+
+#messageInput {
+  width: 100%;
+  min-height: 44px;
+  max-height: 150px;
+  background-color: #2d2d2d25;
+  border: none;
+  border-radius: 8px;
+  color: white;
+  padding: 12px 16px;
+  padding-right: 80px;
+  resize: none;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.4;
+  box-sizing: border-box;
+  overflow-y: hidden;
+}
+
+#messageInput:focus {
+  outline: 2px solid #00259e;
+}
+
+.send-button {
+  position: absolute;
+  right: 24px;
+  background-color: #00259e75;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 16px;
+  cursor: pointer;
+  bottom:0px;
+}
+
+.send-button:hover {
+  background-color: #00259e;
+}
+
+.chat-toggle-button {
+  display: none;
+  position: fixed;
+  top: 5%;
+  right: 20px;
+  margin:5px;
+  padding: 8px;
+  border-radius: 5px;
+  background-color: #00259e75;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+}
+
+.chat-toggle-button:hover {
+  background-color: #00259e;
+}
+
+.toggle-icon {
+  width: 24px;
+  height: 24px;
+}
+
+
+.closeIcon{
+  position:absolute; 
+  left:5px; 
+  padding: 12px 16px; 
+  top:5px;
+}
+  </style>
+  
+
+  <script>
+
+document.addEventListener('DOMContentLoaded', () => {
+  const uid= UserContext._id;
+  const domainId = UiContext.domain._id;
+  const problemId = UiContext.pdoc.pid;
+  setupEventSource(this.domainId, this.uid, this.problemId);
+
+  try {
+    fetchConversation(this.domainId, this.uid, this.problemId)
+            .then(data => {
+              let conversation = data
+            })
+            .catch(error => {
+                console.error('Error in conversation handling:', error);
+            });
+    } catch (error) {
+        console.error('Page initialization error:', error);
+    }
+    // Your initialization code here
+});
+
+
+
+function setupEventSource(domainId, uid, problemId) {
+    const url = new URL(`/ai/stream/${domainId}/${uid}/${problemId}`, window.location.href);
+    const eventSource = new EventSource(url);
+
+    eventSource.onmessage = (event) => {
+        const message = JSON.parse(event.data);
+        if (message.type === 'new-ai-message') {
+            displayMessage({
+                role: 'assistant',
+                content: message.content
+            }, true);
+        }
+    };
+
+    eventSource.onerror = (error) => {
+        console.error('EventSource error:', error);
+        eventSource.close();
+        // Attempt to reconnect after a delay
+        setTimeout(setupEventSource, 5000);
+    };
+}
+
+  // Fetch conversation history
+async function fetchConversation(domainId, uid, problemId) {
+    try {
+      const response = await fetch(`/ai/conv/${domainId}/${uid}/${problemId}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        conversation = data.convHistory.messages; // Save messages to local state
+        conversation.forEach((msg) => {
+          displayMessage(msg, msg.role === 'assistant');
+        });
+      } else {
+        console.error(`Error fetching conversation: ${data.message}`);
+      }
+    } catch (error) {
+      console.error('Failed to fetch conversation:', error);
+    }
+  }
+
+  // Send a new message
+  async function sendMessage(domainId, uid, problemId, messageContent) {
+    const message = {
+      role: 'user',
+      content: messageContent,
+    };
+
+    // Display the user's message immediately
+    displayMessage(message, false);
+
+    try {
+      const response = await fetch(`/ai/conv/${domainId}/${uid}/${problemId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ domainId, uid, problemId, message }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        conversation = data.convHistory.messages; // Update conversation state
+      } else {
+        const errorData = await response.json();
+        console.error(`Error sending message: ${errorData.message}`);
+      }
+    } catch (error) {
+      console.error('Failed to send message:', error);
+    }
+  }
+
+  // Display a message in the chat window
+  function displayMessage(message, isAI = false) {
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `message ${isAI ? 'assistant' : 'user'}`;
+
+    if (isAI) {
+      messageDiv.innerHTML = `
+        <div class="avatar-container">
+          <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpath d='M8 14s1.5 2 4 2 4-2 4-2'/%3E%3Cline x1='9' y1='9' x2='9.01' y2='9'/%3E%3Cline x1='15' y1='9' x2='15.01' y2='9'/%3E%3C/svg%3E" class="avatar" alt="AI Avatar">
+          <span class="ai-name">Leaps AI-Coach:</span>
+        </div>
+        <div class="message-content">${message.content}</div>
+      `;
+    } else {
+      messageDiv.innerHTML = `
+        <div class="message-content">${message.content}</div>
+      `;
+    }
+
+    chatMessages.appendChild(messageDiv);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+  }
+
+
+
+const messageInput = document.getElementById('messageInput');
+const sendButton = document.getElementById('sendButton');
+const chatMessages = document.getElementById('chatMessages');
+
+// Auto-resize input
+function adjustTextAreaHeight(element) {
+  element.style.height = 'auto';
+  element.style.height = (element.scrollHeight) + 'px';
+  
+  // Adjust send button position
+  const isMultiLine = element.scrollHeight > 48;
+  if (isMultiLine) {
+    sendButton.style.bottom = '8px';
+    sendButton.style.top = 'auto';
+    sendButton.style.transform = 'translateY(-50%)';
+  } else {
+    sendButton.style.bottom = 'auto';
+    sendButton.style.top = '50%';
+    sendButton.style.transform = 'translateY(-50%)';
+  }
+}
+
+messageInput.addEventListener('input', function() {
+  adjustTextAreaHeight(this);
+});
+
+document.addEventListener('DOMContentLoaded', function() {
+  const openChat = document.getElementById('openChat');
+  const closeChat = document.getElementById('closeChat');
+  const chatContainer = document.getElementById('chatContainer');
+  const scratchpad = document.getElementById('scratchpad');
+
+  let isChatVisible = false;
+
+  document.getElementById('getButton').addEventListener('click', async (e) => {
+    e.preventDefault();
+    try {
+      const response = await fetch(`/ai/conv/${UiContext.domain._id}/${UserContext._id}/${UiContext.pdoc.pid}`, {
+        method: 'GET',
+      });
+      
+      if (!response.ok) throw new Error('Network response was not ok');
+      const data = await response.json();
+      console.log(data);
+    } catch (error) {
+      console.error('Failed to get conversation:', error);
+    }
+  });
+
+  openChat.addEventListener('click', function() {
+    isChatVisible = !isChatVisible;
+    chatContainer.style.display = isChatVisible ? 'block' : 'none';
+    
+    // Add smooth transition
+    if (isChatVisible) {
+      chatContainer.style.opacity = '0';
+      scratchpad.style.width = '100%';
+      openChat.style.opacity='1';
+      setTimeout(() => {
+        chatContainer.style.opacity = '1';
+        scratchpad.style.width = '75%';
+        openChat.style.opacity='0';
+      }, 0);
+    } else {
+      chatContainer.style.opacity = '1';
+      scratchpad.style.width = '75%';
+      openChat.style.opacity='0';
+      setTimeout(() => {
+        chatContainer.style.opacity = '0';
+        scratchpad.style.width = '100%';
+        openChat.style.opacity='1';
+      }, 0);
+    }
+
+  });
+
+  closeChat.addEventListener('click', function() {
+    isChatVisible = !isChatVisible;
+    chatContainer.style.display = isChatVisible ? 'block' : 'none';
+    
+    // Add smooth transition
+    if (isChatVisible) {
+      chatContainer.style.opacity = '0';
+      scratchpad.style.width = '100%';
+      openChat.style.opacity='1';
+      setTimeout(() => {
+        chatContainer.style.opacity = '1';
+        scratchpad.style.width = '75%';
+        openChat.style.opacity='0';
+      }, 0);
+    } else {
+      chatContainer.style.opacity = '1';
+      scratchpad.style.width = '75%';
+      openChat.style.opacity='0';
+      setTimeout(() => {
+        chatContainer.style.opacity = '0';
+        scratchpad.style.width = '100%';
+        openChat.style.opacity='1';
+      }, 0);
+    }
+
+  });
+});
+
+
+
+// Initial height adjustment
+adjustTextAreaHeight(messageInput);
+
+
+// Event listeners
+document.getElementById('sendButton').addEventListener('click', async () => {
+  const input = document.getElementById('messageInput');
+  const message = input.value.trim();
+  
+  if (message) {
+    input.value = '';
+    await this.sendMessage(domainId, uid, problemId, message);
+  }
+});
+
+// Also handle Enter key press
+document.getElementById('messageInput').addEventListener('keypress', async (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    const message = e.target.value.trim();
+    
+    if (message) {
+      e.target.value = '';
+      await this.sendMessage(domainId, uid, problemId, message);
+    }
+  }
+});
+  </script>
+
+{% endblock %}

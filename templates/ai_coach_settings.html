@@ -1,0 +1,46 @@
+{% extends "domain_base.html" %}
+{% block domain_content %}
+<div class="section">
+  <div class="section__header">
+    <h1 class="section__title">{{ _('AI Coach Settings') }}</h1>
+  </div>
+  <div class="section__body">
+    <form method="post">
+      <div class="row">
+        <div class="medium-12 columns">
+          <label>
+            {{ _('OpenAI API Key') }}
+            <input type="text" name="key" value="{{ '***********************' or '' }}">
+          </label>
+        </div>
+      </div>
+      <div class="row">
+        <div class="medium-12 columns">
+          <label>
+            {{ _('OpenAI API URL') }}
+            <input type="text" name="url" value="{{ credentials.url or '' }}">
+          </label>
+        </div>
+      </div>
+      <div class="row">
+        <div class="medium-12 columns">
+          <label>
+            {{ _('OpenAI Model') }}
+            <input type="text" name="model" value="{{ credentials.model or '' }}">
+          </label>
+        </div>
+      </div>
+      <div class="row">
+        <div class="medium-12 columns">
+          <input type="submit" class="rounded primary button" value="{{ _('Save') }}">
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+
+
+</script>
+{% endblock %}
