@@ -12,7 +12,7 @@ export async function apply(ctx: Context) {
 
     // Add routes
     ctx.Route('ai_coach_settings', '/domain/ai', AISettingsHandler);
-    ctx.Route('ai_conv', `/ai/conv/:domainId/:uid/:problemId`, ConvHistHandler);
+    ctx.Route('ai_conv', `/ai/conv/${this.domainId}/${this.uid}/${this.problemId}`, ConvHistHandler);
     ctx.Route('ai_chat', `/ai/chat/:domainId/:uid/:problemId`, AIMessageHandler);
 
     // Add domain settings

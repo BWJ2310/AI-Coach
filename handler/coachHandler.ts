@@ -27,17 +27,7 @@ export class ConvHistHandler extends coachHandler {
                 this.checkPriv(PRIV.PRIV_USER_PROFILE);
                 this.ddoc = await AIConvModel.add(uid, problemId, domainId);
             }
-            
-            // Return formatted conversation history
-            return this.response.body = {
-                success: true,
-                conversation: {
-                    id: this.ddoc.docId,
-                    messages: this.ddoc.messages || [],
-                    problemId: this.ddoc.problemId,
-                    uid: this.ddoc.uid
-                }
-            };
+            return this.response.body = this.ddoc;
         } catch (error) {
             return this.response.body = {
                 success: false,
