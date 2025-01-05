@@ -26,8 +26,15 @@
     {% endif %}
     {% if page_name == 'problem_detail' %}
     {% if handler.user.hasPerm(perm.PERM_SUBMIT_PROBLEM) %}
-    <form method="get" action="{{ url('ai_chat', domainId=UiContext.domain._id, uid=UserContext._id, promblemId=UiContext.pdoc.pid) }}">
-      <li  class="menu__item scratchpad--hide nojs--hide"><a id="getButton" class="menu__link highlight" name="problem-sidebar__open-scratchpad" href="javascript:;" data-global-hotkey="alt+e">
+    <form method="get">
+      <li  class="menu__item scratchpad--hide nojs--hide"><a id="getButton" 
+        class="menu__link highlight" 
+        name="problem-sidebar__open-scratchpad" 
+        href="javascript:;" 
+        data-domain="${UiContext.domain._id}"
+        data-uid="${UserContext._id}"
+        data-pid="${UiContext.pdoc.pid}"
+        data-global-hotkey="alt+e">
         <span class="icon icon-enlarge"></span> {{ _('Open Scratchpad') }} (Alt+E)
       </a></li>
     </form>

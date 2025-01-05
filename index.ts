@@ -1,6 +1,7 @@
 import { db, Context, Handler,ObjectId, DocumentModel, Filter,  PRIV, param, Types,  PERM, } from 'hydrooj';
-import { AISettingsHandler } from './public/AISettingsHandler';
+import { AISettingsHandler } from './handler/AISettingsHandler';
 import { AIConvModel } from './model/AIConvModel';
+import request from 'vj/utils';
 
 import {coachHandler, ConvHistHandler, AIMessageHandler} from './handler/coachHandler';
 

@@ -1,6 +1,5 @@
-import { db, Handler, param, Types, ObjectId, PRIV, DiscussionNotFoundError } from 'hoj';
+import { db, Handler, param, Types, ObjectId, PRIV, DiscussionNotFoundError } from 'hydrooj';
 import { AIConvDoc, AIConvModel } from '../model/AIConvModel';
-import {useSelector} from 'react-redux';
 import { getAISettings } from '../public/getAISettings';
 
 const coll = db.collection('ai_coach_settings');
@@ -23,11 +22,28 @@ export class ConvHistHandler extends coachHandler {
     @param('domainId', Types.string)
     @param('problemId', Types.string)
     async get(domainId: string, uid: number, problemId: string) {
-        if (!this.ddoc) {
-            this.checkPriv(PRIV.PRIV_USER_PROFILE);
-            this.ddoc = await AIConvModel.add(uid, problemId, domainId);
+        try {
+            if (!this.ddoc) {
+                this.checkPriv(PRIV.PRIV_USER_PROFILE);
+                this.ddoc = await AIConvModel.add(uid, problemId, domainId);
+            }
+            
+            // Return formatted conversation history
+            return this.response.body = {
+                success: true,
+                conversation: {
+                    id: this.ddoc.docId,
+                    messages: this.ddoc.messages || [],
+                    problemId: this.ddoc.problemId,
+                    uid: this.ddoc.uid
+                }
+            };
+        } catch (error) {
+            return this.response.body = {
+                success: false,
+                error: error.message
+            };
         }
-        return this.ddoc;
     }
 }
 
@@ -53,25 +69,19 @@ export class AIMessageHandler extends ConvHistHandler {
     async getAiResponse(content: string){
             // Get credentials from getAISettings
             const aiCredentials = await getAISettings(this.ddoc!.domainId) || {key: null, url: null, model: null};
-            let description = '';
-            if (aiCredentials.key!=null && aiCredentials.url!=null && aiCredentials.model!=null) {
-                const problem = await coll.findOne({ problemId: this.ddoc!.problemId });
-                if (!problem) throw new Error('Problem not found');
-                let description = problem.content[0]; 
-            } else {
-                
+            if (!aiCredentials.key || !aiCredentials.url || !aiCredentials.model) {
                 return null;
             }
+        
+            const problem = await coll.findOne({ problemId: this.ddoc!.problemId });
+            if (!problem) throw new Error('Problem not found');
+            const description = problem.content[0];
     
             let code = '';
     
-            code = useSelector((state: any) => state.editor.code);
-            if (!code){
-                // Method 2: Through global editor instance
-                const editorCode = (window as any).editor?.getValue();
-                // Method 3: If you have access to the Editor component instance
-                const code = editorCode.value();
-            }
+            const editorCode = (window as any).editor?.getValue();
+            // Method 3: If you have access to the Editor component instance
+            code = editorCode.value();
     
             try {
             // Make request using fetch API

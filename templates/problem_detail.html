@@ -323,69 +323,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const uid= UserContext._id;
   const domainId = UiContext.domain._id;
   const problemId = UiContext.pdoc.pid;
-  setupEventSource(this.domainId, this.uid, this.problemId);
-
-  try {
-    fetchConversation(this.domainId, this.uid, this.problemId)
-            .then(data => {
-              let conversation = data
-            })
-            .catch(error => {
-                console.error('Error in conversation handling:', error);
-            });
-    } catch (error) {
-        console.error('Page initialization error:', error);
-    }
-    // Your initialization code here
 });
 
 
-
-function setupEventSource(domainId, uid, problemId) {
-    const url = new URL(`/ai/stream/${domainId}/${uid}/${problemId}`, window.location.href);
-    const eventSource = new EventSource(url);
-
-    eventSource.onmessage = (event) => {
-        const message = JSON.parse(event.data);
-        if (message.type === 'new-ai-message') {
-            displayMessage({
-                role: 'assistant',
-                content: message.content
-            }, true);
-        }
-    };
-
-    eventSource.onerror = (error) => {
-        console.error('EventSource error:', error);
-        eventSource.close();
-        // Attempt to reconnect after a delay
-        setTimeout(setupEventSource, 5000);
-    };
-}
-
-  // Fetch conversation history
-async function fetchConversation(domainId, uid, problemId) {
-    try {
-      const response = await fetch(`/ai/conv/${domainId}/${uid}/${problemId}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      const data = await response.json();
-      if (response.ok) {
-        conversation = data.convHistory.messages; // Save messages to local state
-        conversation.forEach((msg) => {
-          displayMessage(msg, msg.role === 'assistant');
-        });
-      } else {
-        console.error(`Error fetching conversation: ${data.message}`);
-      }
-    } catch (error) {
-      console.error('Failed to fetch conversation:', error);
-    }
-  }
 
   // Send a new message
   async function sendMessage(domainId, uid, problemId, messageContent) {
@@ -477,21 +417,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
   let isChatVisible = false;
 
-  document.getElementById('getButton').addEventListener('click', async (e) => {
-    e.preventDefault();
-    try {
-      const response = await fetch(`/ai/conv/${UiContext.domain._id}/${UserContext._id}/${UiContext.pdoc.pid}`, {
-        method: 'GET',
-      });
-      
-      if (!response.ok) throw new Error('Network response was not ok');
-      const data = await response.json();
-      console.log(data);
-    } catch (error) {
-      console.error('Failed to get conversation:', error);
-    }
-  });
-
   openChat.addEventListener('click', function() {
     isChatVisible = !isChatVisible;
     chatContainer.style.display = isChatVisible ? 'block' : 'none';
@@ -555,26 +480,64 @@ adjustTextAreaHeight(messageInput);
 
 // Event listeners
 document.getElementById('sendButton').addEventListener('click', async () => {
-  const input = document.getElementById('messageInput');
-  const message = input.value.trim();
-  
-  if (message) {
-    input.value = '';
-    await this.sendMessage(domainId, uid, problemId, message);
-  }
+    const content = messageInput.value.trim();
+    if (!content) return;
+
+    try {
+        // Display user message immediately
+        displayMessage({
+            role: 'user',
+            content: content
+        });
+
+        messageInput.value = '';
+
+        // Use request utility instead of fetch
+        const response = await request.post(`/ai/chat/${domainId}/${uid}/${problemId}`, {
+            content: content
+        });
+
+        if (response.messages) {
+            // Display AI response
+            displayMessage(response.messages[1]); // AI message
+        }
+
+    } catch (error) {
+        console.log(error.message);
+    }
 });
 
-// Also handle Enter key press
-document.getElementById('messageInput').addEventListener('keypress', async (e) => {
-  if (e.key === 'Enter' && !e.shiftKey) {
-    e.preventDefault();
-    const message = e.target.value.trim();
-    
-    if (message) {
-      e.target.value = '';
-      await this.sendMessage(domainId, uid, problemId, message);
+let progress = false;
+async function enterScratchpadMode() {
+    if (progress) return;
+    progress = true;
+
+    try {
+        // Get the button and its data attributes
+        const button = document.getElementById('getButton');
+
+        // Fetch conversation history
+        const history = await request.get(`/ai/conv/${this.domainId}/${this.uid}/${this.problemId}`);
+        
+        // Store the conversation history in window object for access in scratchpad
+        window.aiConversation = history.conversation;
+
+        // Continue with normal scratchpad opening
+        await extender.extend();
+        await loadReact();
+        renderReact();
+        await scratchpadFadeIn();
+    } catch (error) {
+        console.error('Failed to load conversation history:', error);
+    } finally {
+        progress = false;
     }
-  }
+}
+
+// The existing click event handler remains the same
+document.getElementById('getButton').addEventListener('click', (ev) => {
+    enterScratchpadMode();
+    ev.preventDefault();
 });
   </script>
 
