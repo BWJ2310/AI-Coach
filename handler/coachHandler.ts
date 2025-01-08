@@ -1,35 +1,28 @@
-import { db, Handler, param, Types, ObjectId, PRIV, DiscussionNotFoundError } from 'hydrooj';
+import {db, Handler, param, Types, ObjectId, PRIV, DiscussionNotFoundError } from 'hydrooj';
 import { AIConvDoc, AIConvModel } from '../model/AIConvModel';
 import { getAISettings } from '../public/getAISettings';
 
-const coll = db.collection('ai_coach_settings');
 
-export class coachHandler extends Handler {
-    ddoc?: AIConvDoc;
-
-    @param('did', Types.ObjectId, true)
-    async _prepare(domainId: string, did: ObjectId) {
-        if (did) {
-            this.ddoc = await AIConvModel.get(did);
-            if (!this.ddoc) throw new DiscussionNotFoundError(domainId, did);
-        }
-    }
-}
+const coll = db.collection('ai_conv');
+const collProblem = db.collection('document');
 
 
-export class ConvHistHandler extends coachHandler {
+
+export class ConvHistHandler extends Handler {
+    aidoc?: AIConvDoc;
     @param('uid', Types.Int)
     @param('domainId', Types.string)
     @param('problemId', Types.string)
     async get(domainId: string, uid: number, problemId: string) {
         try {
-            if (!this.ddoc) {
+            this.aidoc = await AIConvModel.get( uid, problemId, domainId);
+            if (!this.aidoc) {
                 this.checkPriv(PRIV.PRIV_USER_PROFILE);
-                this.ddoc = await AIConvModel.add(uid, problemId, domainId);
+                this.aidoc = await AIConvModel.add(uid, problemId, domainId);
             }
-            return this.response.body = this.ddoc;
+            return this.aidoc;
         } catch (error) {
-            return this.response.body = {
+            return {
                 success: false,
                 error: error.message
             };
@@ -37,33 +30,54 @@ export class ConvHistHandler extends coachHandler {
     }
 }
 
-export class AIMessageHandler extends ConvHistHandler {
-    async post(){
-        this.checkPriv(PRIV.PRIV_USER_PROFILE);
+
+export class AIMessageHandler extends Handler {
+    aidoc ?: AIConvDoc
+
+    @param('convId', Types.ObjectId, true)
+    async post(convId: ObjectId) {
+        // Get content from request body
+        const content = this.request.json.content;
+        
+        try {
+            // Send user message
+            await this.sendMessage(convId, {
+                role: 'user', 
+                content, 
+                timestamp: Date.now()
+            });
+
+            // Get AI response
+            const aiResponse = await this.getAiResponse(convId, content);
+            
+            // Return response
+            this.response.body = {
+                success: true,
+                message: aiResponse
+            };
+        } catch (error) {
+            this.response.body = {
+                success: false,
+                error: error.message
+            };
+        }
     }
 
-    @param('content', Types.Content)
-    async userMessage(content: string) {
-        this.sendMessage({role: 'user', content: content});
-        this.getAiResponse(content);
-    }
-
-    async sendMessage(message: Types.Array) {
-        const did = this.ddoc!.docId;
-        const payload = {role: message.role, content: message.content, timestamp: Date.now()};
-        await AIConvModel.edit(did, payload);
-        this.response.body = payload;
+    async sendMessage(convId:Types.String, message: Types.Array) {
+        const payload = {role: message.role, content: message.content, timestamp: message.timestamp};
+        await AIConvModel.edit(convId, payload);
     }
 
 
-    async getAiResponse(content: string){
+    async getAiResponse(convId:string, content: string){
             // Get credentials from getAISettings
-            const aiCredentials = await getAISettings(this.ddoc!.domainId) || {key: null, url: null, model: null};
+            const aiCredentials = await getAISettings(this.aidoc!.domainId) || {key: null, url: null, model: null};
             if (!aiCredentials.key || !aiCredentials.url || !aiCredentials.model) {
                 return null;
             }
         
-            const problem = await coll.findOne({ problemId: this.ddoc!.problemId });
+            const convHist = await coll.findOne({ did: this.aidoc!._id });
+            const problem = await collProblem.finfOne({pid:convHist.problemId})
             if (!problem) throw new Error('Problem not found');
             const description = problem.content[0];
     
@@ -75,24 +89,24 @@ export class AIMessageHandler extends ConvHistHandler {
     
             try {
             // Make request using fetch API
+            let tempAiConv = Array['']
+            tempAiConv = [{
+                role: "system",
+                content: `You are an expert assistant that helps with code analysis and debugging. Be precise and concise.This's the code description: /n${description}, and here's the user input: /n${code}`
+            }].push(convHist.messages)
             const response = await fetch(aiCredentials.url, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${aiCredentials.key}`,
                     'Content-Type': 'application/json'
                 },
+                
                 body: JSON.stringify({
                     model: aiCredentials.model,
-                    messages: [
-                        {
-                            role: "system",
-                            content: "You are an expert assistant that helps with code analysis and debugging. Be precise and concise."
-                        },
-                        {
-                            role: "user",
-                            content: `'this's the code description: /n${description}, and here's the user input: /n${code}`
-                        }
-                    ],
+                    messages:  tempAiConv.push({
+                        role: "user",
+                        content: content
+                    }),
                     temperature: 0.7,
                     max_tokens: 1000
                 })
@@ -104,8 +118,8 @@ export class AIMessageHandler extends ConvHistHandler {
             }
     
             const data = await response.json();
-            const message = {role:"Assistant", content:data.choices[0].message.content};
-            this.sendMessage(message);
+            const message = {role:"Assistant", content:data.choices[0].message.content, timestamp: Date.now()};
+            this.sendMessage(did, message);
             return message;
     
         } catch (error) {

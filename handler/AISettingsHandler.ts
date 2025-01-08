@@ -21,7 +21,8 @@ export class AISettingsHandler extends Handler {
     @param('key', Types.String)
     @param('url', Types.String)
     @param('model', Types.String)
-    async post(domainId: string, key: string, url: string, model: string) {
+    @param('useAI', Types.Boolean)
+    async post(domainId: string, key: string, url: string, model: string, useAI:Boolean) {
         // Validate inputs
         if (!key) throw new Error('API key is required');
         if (!url) throw new Error('API URL is required');
@@ -32,6 +33,7 @@ export class AISettingsHandler extends Handler {
             await system.set(`${domainId}.apikey`, key);
             await system.set(`${domainId}.url`, url);
             await system.set(`${domainId}.model`, model);
+            await system.set(`${domainId}.useAI`, useAI);
             this.response.redirect = this.url('ai_coach_settings', {domainId: domainId});
         } catch (error) {
             throw new Error(`Failed to save API settings: ${error.message}`);

@@ -1,15 +1,16 @@
-import { db, Context, Handler,ObjectId,  DocumentModel, Filter,  PRIV, param, Types,  PERM, } from 'hydrooj';
+import { db, ObjectId, Types, Filter } from 'hydrooj';
 
 export const TYPE_AI_CONV: 80 = 80;
-
+const coll = db.collection('ai_conv');
+const settingsColl = db.collection('ai_settings');
 
 export interface AIConvDoc {
-    docId: ObjectId;
+    _id: ObjectId;  // Changed from docId to _id to match MongoDB convention
     docType: 80;
     domainId: string;
     uid: number;
     problemId: string;
-    count:number;
+    count: number;
     messages: Array<{
         role: 'user' | 'assistant';
         content: string;
@@ -27,48 +28,67 @@ declare module 'hydrooj' {
 }
 
 export class AIConvModel {
-    // blog creation
     static async add(
-        uid: number, problemId: string, domainId: string,
+        uid: number, 
+        problemId: string, 
+        domainId: string,
     ): Promise<ObjectId> {
-        const payload: Partial<AIConvDoc> = {
+        const payload = {
+            docType: TYPE_AI_CONV,
             uid,
             problemId,
             domainId,
-            count:0,
-            messages:[{ role: "assistant", content: "hello, how can I help you with?", timestamp: Date.now(), }],
+            count: 0,
+            messages: [{ 
+                role: "assistant", 
+                content: "hello, how can I help you with?", 
+                timestamp: Date.now() 
+            }],
         };
-        const res = await DocumentModel.add(
-            payload.uid!, payload.problemId!, payload.domainId!, 0, payload.messages!, TYPE_AI_CONV,
-             _.omit(payload, ['domainId', 'content', 'owner', 'count', 'messages']),
+        
+        const result = await coll.insertOne(payload);
+        return result._id;
+    }
+
+    static async check(domainId: string): Promise<AIConvDoc> {
+        const credentials = settingsColl.findOne({ domainId });
+        return credentials.useAI
+    }
+
+    static async get(uid: number, problemId: string, domainId: string): Promise<AIConvDoc> {
+        return await coll.findOne({ uid, problemId, domainId });
+    }
+
+    static async edit(did: ObjectId, message: {role: string, content: string}): Promise<AIConvDoc> {
+        const newMessage = {
+            role: message.role,
+            content: message.content,
+            timestamp: Date.now()
+        };
+        
+        const result = await coll.findOneAndUpdate(
+            { _id: did },
+            { $push: { messages: newMessage } },
+            { returnDocument: 'after' }
         );
-        payload.docId = res;
-        return payload.docId;
+        
+        return result.value;
     }
 
-    // conversation retrieval
-    static async get(did: ObjectId): Promise<AIConvDoc> {
-        return await DocumentModel.get(TYPE_AI_CONV, did);
+    static async inc(did: ObjectId, count: number): Promise<AIConvDoc> {
+        const result = await coll.findOneAndUpdate(
+            { _id: did },
+            { $inc: { count: count } },
+            { returnDocument: 'after' }
+        );
+        
+        return result.value;
     }
 
-    // add new message
-    static async edit(did: ObjectId, message: Types.Array): Promise<AIConvDoc> {
-        let convHistory = await DocumentModel.get(TYPE_AI_CONV, did);
-        const  payload =  {messages: convHistory.messages.push({ fole: message.role, content: message.content, timestamp: Date.now() })};
-        return DocumentModel.set(TYPE_AI_CONV, did, payload);
-    }
-
-    // conversation count
-    static inc(did: ObjectId, count: number): Promise<AIConvDoc> {
-        return DocumentModel.inc(TYPE_AI_CONV, did, count, 1);
-    }
-
-
-    // get multiple conversation from a user
-    static getMulti(domainId:string, query: Filter<AIConvDoc> = {}) {
-        return DocumentModel.getMulti(domainId, TYPE_AI_CONV, query)
-            .sort({ _id: -1 });
+    static getMulti(domainId: string, query: Filter<AIConvDoc> = {}) {
+        return coll.find({ 
+            domainId,
+            ...query 
+        }).sort({ _id: -1 });
     }
 }
-
-

@@ -8,9 +8,14 @@
     <form method="post">
       <div class="row">
         <div class="medium-12 columns">
+          <label class="checkbox">
+            <input type="checkbox" name="useAI" value="on" class="checkbox"
+              {%- if credentials.useAI %} checked{% endif -%}
+            >{{ _('use_AI') }}
+          </label>
           <label>
             {{ _('OpenAI API Key') }}
-            <input type="text" name="key" value="{{ '***********************' or '' }}">
+            <input type="text" name="key" value="{{ '*********************' if credentials.key else '' }}">
           </label>
         </div>
       </div>

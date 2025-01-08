@@ -6,8 +6,10 @@
   problemNumId: pdoc.docId,
   codeLang: handler.user.codeLang,
   codeTemplate: handler.user.codeTemplate,
-  pdoc: pdoc
-}) }}
+  pdoc: pdoc,
+  aiConvHist: aiConvHist,
+  convId:aiConvHist._id
+})}}
 {% if tdoc %}
   {{ set(UiContext, 'canViewRecord', model.contest.canShowSelfRecord.call(handler, tdoc)) }}
   {{ set(UiContext, 'postSubmitUrl', url('problem_submit', pid=pdoc.docId, query={tid:tdoc.docId})) }}
@@ -132,7 +134,8 @@
   <div id="scratchpad" style="opacity:0;"></div>
 
   <button id="openChat" class="chat-toggle-button" >
-    <txt alt="Open Chat"> <txt>✨</txt> 
+   
+    <txt alt="Open Chat"> <txt>✨{{payload.aidoc._id}}</txt> 
   </button>
 
 
@@ -150,10 +153,15 @@
     <div class="chat-messages" id="chatMessages">
       
     </div>
+    <form method="post" id="messageForm">
     <div class="chat-input-container">
-      <textarea id="messageInput" placeholder="Type your message..." rows="1"></textarea>
-      <button id="sendButton" class="send-button">Send</button>
+      <input 
+            name="" placeholder="Type a message..."
+            value=""
+            id="messageInput">
+      <button id="sendButton" value="content" type="submit" class="send-button">Send</button>
     </div>
+  </form>
   </div>
   </div>
 
@@ -281,7 +289,6 @@
 }
 
 .chat-toggle-button {
-  display: none;
   position: fixed;
   top: 5%;
   right: 20px;
@@ -318,6 +325,177 @@
   
 
   <script>
+
+(function() {
+  // Wait for DOM to be fully loaded
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeChat);
+  } else {
+    initializeChat();
+  }
+
+  function initializeChat() {
+    console.log('DOM loaded');
+    const openChat = document.getElementById('openChat');
+    const closeChat = document.getElementById('closeChat');
+    const chatContainer = document.getElementById('chatContainer');
+    const scratchpad = document.getElementById('scratchpad');
+    const chatMessages = document.getElementById('chatMessages');
+    const messageForm = document.getElementById('messageForm');
+
+    // Load conversation history
+    if (window.UiContext && window.UiContext.aiConvHist && window.UiContext.aiConvHist.messages) {
+      window.UiContext.aiConvHist.messages.forEach(message => {
+        displayMessage(message);
+      });
+    }
+
+    let isChatVisible = false;
+
+    // Open chat button handler
+    openChat.addEventListener('click', () => {
+      console.log('Open chat clicked');
+      isChatVisible = !isChatVisible;
+      chatContainer.style.display = isChatVisible ? 'block' : 'none';
+      
+      if (isChatVisible) {
+        chatContainer.style.opacity = '1';
+        scratchpad.style.width = '75%';
+        openChat.style.opacity = '0';
+      } else {
+        chatContainer.style.opacity = '0';
+        scratchpad.style.width = '100%';
+        openChat.style.opacity = '1';
+      }
+    });
+
+    // Close chat button handler
+    closeChat.addEventListener('click', () => {
+      isChatVisible = false;
+      chatContainer.style.display = 'none';
+      chatContainer.style.opacity = '0';
+      scratchpad.style.width = '100%';
+      openChat.style.opacity = '1';
+    });
+
+    // Handle form submission
+    
+messageForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const input = document.getElementById('messageInput');
+  const message = input.value.trim();
+  
+  if (message) {
+    try {
+      // Get conversation ID from the button text
+      const convId = UiContext.aiConvHist._id;
+      
+      // Send message to backend using the correct endpoint and method
+      const response = await fetch(`/ai_coach/${convId}`, {  // Updated endpoint
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          content: message
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to send message');
+      }
+
+      const result = await response.json();
+      
+      // Display user message immediately
+      displayMessage({
+        role: 'user',
+        content: message,
+        timestamp: Date.now()
+      });
+
+      // Clear input
+      input.value = '';
+      
+      // Display AI response when received
+      if (result) {
+        displayMessage({
+          role: 'Assistant',
+          content: result.message,
+          timestamp: Date.now()
+        });
+      }
+
+    } catch (error) {
+      console.error('Error sending message:', error);
+      displayMessage({
+        role: 'system',
+        content: 'Error: Failed to send message',
+        timestamp: Date.now()
+      });
+    }
+  }
+});
+
+    // Enter key handler
+    document.getElementById('messageInput').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        messageForm.dispatchEvent(new Event('submit'));
+      }
+    });
+  }
+
+  // Display a message in the chat window
+  function displayMessage(message) {
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `message ${message.role === 'assistant' ? 'ai-message' : 'user-message'}`;
+
+    if (message.role === 'assistant') {
+      messageDiv.innerHTML = `
+        <div class="avatar-container">
+          <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpath d='M8 14s1.5 2 4 2 4-2 4-2'/%3E%3Cline x1='9' y1='9' x2='9.01' y2='9'/%3E%3Cline x1='15' y1='9' x2='15.01' y2='9'/%3E%3C/svg%3E" class="avatar" alt="AI Avatar">
+          <span class="ai-name">Leaps AI-Coach:</span>
+        </div>
+        <div class="message-content">${message.content}</div>
+      `;
+    } else {
+      messageDiv.innerHTML = `
+        <div class="message-content">${message.content}</div>
+      `;
+    }
+
+    const chatMessages = document.getElementById('chatMessages');
+    chatMessages.appendChild(messageDiv);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+  }
+
+  // Auto-resize input
+  function adjustTextAreaHeight(element) {
+    element.style.height = 'auto';
+    element.style.height = (element.scrollHeight) + 'px';
+    
+    const sendButton = document.getElementById('sendButton');
+    const isMultiLine = element.scrollHeight > 48;
+    if (isMultiLine) {
+      sendButton.style.bottom = '8px';
+      sendButton.style.top = 'auto';
+      sendButton.style.transform = 'translateY(-50%)';
+    } else {
+      sendButton.style.bottom = 'auto';
+      sendButton.style.top = '50%';
+      sendButton.style.transform = 'translateY(-50%)';
+    }
+  }
+
+  const messageInput = document.getElementById('messageInput');
+  messageInput.addEventListener('input', function() {
+    adjustTextAreaHeight(this);
+  });
+
+  // Initial height adjustment
+  adjustTextAreaHeight(messageInput);
+})();
 
   </script>
 
