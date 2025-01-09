@@ -124,9 +124,6 @@ export async function apply(ctx: Context) {
     
     };
 
-    ProblemDetailHandler.prototype.getAiResponse = async function(...args){
-    }
-
     // Add routes only for settings
     ctx.Route('ai_coach_settings', '/ai_settings', AISettingsHandler);
     ctx.Route('ai_chat', `/ai_coach/:convId`,  AIMessageHandler, PRIV.PRIV_USER_PROFILE);
@@ -139,12 +136,26 @@ export async function apply(ctx: Context) {
 
     // Add translations
     ctx.i18n.load('en', {
-        'openai.apikey': 'OpenAI API Key',
-        'openai.model': 'Model Name',
-        'openai.temperature': 'Temperature',
+        'ai.count': 'Max conversation count',
+        'ai.useAI': 'turn on AI?',
+        'ai.apikey': 'AI API Key',
+        'ai.url': 'AI Base URL',
+        'ai.model': 'Model Name',
+        'ai.temperature': 'Temperature',
         'chat.error': 'Failed to get AI response: {0}',
         'ai_coach_settings': 'AI Settings'
     });
+
+    ctx.i18n.load('zh', {
+        'ai.count': '  最大对话次数',
+        'ai.useAI': '是否启用AI?',
+        'ai.apikey': 'OpenAI API密钥',
+        'ai.url': 'AI服务链接',
+        'ai.model': '模型名称',
+        'ai.temperature': '随机性',
+        'chat.error': 'AI获取失败: {0}',
+        'ai_coach_settings': 'AI设置'
+});
 
 
 }

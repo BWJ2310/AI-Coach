@@ -2,7 +2,8 @@ import { db, ObjectId, Types, Filter } from 'hydrooj';
 
 export const TYPE_AI_CONV: 80 = 80;
 const coll = db.collection('ai_conv');
-const settingsColl = db.collection('ai_settings');
+const settingsColl = db.collection('ai_coach_settings');
+
 
 export interface AIConvDoc {
     _id: ObjectId;  // Changed from docId to _id to match MongoDB convention
@@ -75,10 +76,10 @@ export class AIConvModel {
         return result.value;
     }
 
-    static async inc(did: ObjectId, count: number): Promise<AIConvDoc> {
+    static async inc(did: ObjectId): Promise<AIConvDoc> {
         const result = await coll.findOneAndUpdate(
             { _id: did },
-            { $inc: { count: count } },
+            { $inc: { count: 1 } },
             { returnDocument: 'after' }
         );
         

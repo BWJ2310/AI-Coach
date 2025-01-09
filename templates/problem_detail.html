@@ -385,8 +385,23 @@ messageForm.addEventListener('submit', async (e) => {
   const input = document.getElementById('messageInput');
   const message = input.value.trim();
   
+
+  let code = document.querySelectorAll('[role="presentation"]')
+  let codeContent = code[7].innerText
+
+
   if (message) {
     try {
+      // Display user message immediately
+      displayMessage({
+        role: 'user',
+        content: message,
+        timestamp: Date.now()
+      });
+      
+      // Clear input
+      input.value = '';
+
       // Get conversation ID from the button text
       const convId = UiContext.aiConvHist._id;
       
@@ -397,39 +412,34 @@ messageForm.addEventListener('submit', async (e) => {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          content: message
+          convId:convId,
+          message: message,
+          code: codeContent
         })
       });
 
+
       if (!response.ok) {
-        throw new Error('Failed to send message');
-      }
+  const aiContent = await response.body.content; // Extract the assistant's message
+} 
 
-      const result = await response.json();
-      
-      // Display user message immediately
-      displayMessage({
-        role: 'user',
-        content: message,
-        timestamp: Date.now()
-      });
-
-      // Clear input
-      input.value = '';
-      
-      // Display AI response when received
-      if (result) {
+  // Parse the JSON response
+  const data = await response.json();// Check if response contains success flag
+      if (data.success === true) {
+        // Display AI response
         displayMessage({
-          role: 'Assistant',
-          content: result.message,
+          role: 'assistant',
+          content: data.content.content,
           timestamp: Date.now()
         });
+      } else {
+        throw new Error(data.message || 'Failed to get AI response');
       }
 
     } catch (error) {
       console.error('Error sending message:', error);
       displayMessage({
-        role: 'system',
+        role: 'assistant',
         content: 'Error: Failed to send message',
         timestamp: Date.now()
       });
@@ -487,11 +497,6 @@ messageForm.addEventListener('submit', async (e) => {
       sendButton.style.transform = 'translateY(-50%)';
     }
   }
-
-  const messageInput = document.getElementById('messageInput');
-  messageInput.addEventListener('input', function() {
-    adjustTextAreaHeight(this);
-  });
 
   // Initial height adjustment
   adjustTextAreaHeight(messageInput);
