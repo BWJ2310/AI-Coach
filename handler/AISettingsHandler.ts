@@ -1,5 +1,5 @@
 import {  Context, Handler,  param, Types, PRIV, PERM, system} from 'hydrooj';
-import {getAISettings, setAICredential} from '../public/getAISettings'
+import {getAISettings, setAICredential } from '../public/getAISettings'
 
 export class AISettingsHandler extends Handler {
     async prepare() {
@@ -18,10 +18,10 @@ export class AISettingsHandler extends Handler {
     @param('key', Types.String)
     @param('url', Types.String)
     @param('model', Types.String)
-    async post( domainId: string, useAI: boolean, count: number, key: string, url: string, model: string ) {
+    async post( domainId: string, useAI: Boolean, count: number, key: string, url: string, model: string ) {
         // Validate inputs
-        if (!useAI) {
-            useAI = true;
+        if (useAI==null) {
+            useAI = false;
         };
         if (!count) {
             count = 10;

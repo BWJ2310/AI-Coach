@@ -15,10 +15,19 @@ export class ConvHistHandler extends Handler {
     @param('problemId', Types.string)
     async get(domainId: string, uid: number, problemId: string) {
         try {
+            const aiSet = await getAISettings(domainId)
+            if (!aiSet.useAI){
+                return {
+                    noAI:true
+                }
+            }
             this.aidoc = await AIConvModel.get( uid, problemId, domainId);
             if (!this.aidoc) {
                 this.checkPriv(PRIV.PRIV_USER_PROFILE);
                 this.aidoc = await AIConvModel.add(uid, problemId, domainId);
+            }
+            if (this.aidoc?.messages[this.aidoc.messages.length - 1].role === 'user'){
+                this.aidoc = await AIConvModel.remove(this.aidoc._id)
             }
             return this.aidoc;
         } catch (error) {
@@ -49,8 +58,13 @@ export class AIMessageHandler extends Handler {
             // Get AI response
             const domainId = content.domainId;
             const code = content.code;  
-            const aiResponse = await this.getAiResponse(content.convId, content, domainId, code);
-            
+            const aiResponse = await this.getAiResponse(content.convId, domainId, code);
+            if (aiResponse){
+                await this.sendMessage(convId, aiResponse);
+                await AIConvModel.inc(convId);
+            }else{
+                await AIConvModel.remove(convId)
+            }
             // Return response
             this.response.body = {
                 success: true,
@@ -69,16 +83,22 @@ export class AIMessageHandler extends Handler {
     }
 
 
-    async getAiResponse(convId:string, content: string, domainId: string, code: string) {
+    async getAiResponse(convId:string,  domainId: string, code: string) {
             // Get credentials from getAISettings
+            const aiSet = await getAISettings(domainId) || {useAI: true, count: 10};
+            const convHist = await coll.findOne({ _id: new ObjectId(convId) });
+            console.log('convHist is', convHist);
+
+            if (convHist.count>=aiSet.count){
+                return{
+                    role: "assistant", content: "Max conversation reached"
+                };
+            }
             const aiCredentials = await getAISettings("system") || {key: null, url: null, model: null};
             console.log(`credentials at ${domainId} is ${aiCredentials.key} ${aiCredentials.url} ${aiCredentials.model}`);
             if (!aiCredentials.key || !aiCredentials.url || !aiCredentials.model) {
                 return {role: "assistant", content:"AI credentials not found", timestamp: Date.now()};
             }
-        
-            const convHist = await coll.findOne({ _id: new ObjectId(convId) });
-            console.log('convHist is', convHist);
             const problem = await collProblem.findOne({pid:convHist.problemId})
             console.log('problem is', problem);
             if (!problem) throw new Error('Problem not found');
@@ -128,10 +148,8 @@ export class AIMessageHandler extends Handler {
                 }
             
                 const data = await response.json();
-                const message = { role: "assistant", content: data.choices[0].message.content};
+                const message = { role: "assistant", content: data.choices[0].message.content, timestamp: Date.now()};
                 console.log(message)
-                await this.sendMessage(convId, message);
-                await AIConvModel.inc(convId);
                 return message;
             
             } catch (error) {

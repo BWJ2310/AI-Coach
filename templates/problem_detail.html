@@ -8,7 +8,7 @@
   codeTemplate: handler.user.codeTemplate,
   pdoc: pdoc,
   aiConvHist: aiConvHist,
-  convId:aiConvHist._id
+  convId:aiConvHist._id|default('')
 })}}
 {% if tdoc %}
   {{ set(UiContext, 'canViewRecord', model.contest.canShowSelfRecord.call(handler, tdoc)) }}
@@ -135,7 +135,7 @@
 
   <button id="openChat" class="chat-toggle-button" >
    
-    <txt alt="Open Chat"> <txt>✨{{payload.aidoc._id}}</txt> 
+    <txt alt="Open Chat"> <txt>✨</txt> 
   </button>
 
 
@@ -148,7 +148,7 @@
  <txt alt="Close Chat"> ✖ </txt>
       </button>
 
-      <h1>✨ Leaps AI-Coach</h1>
+      <h1 id="chat-title">✨{{ _('count.left') }} <span id="countLeftDisplay">{{countLeft}}</span></h1>
     </div>
     <div class="chat-messages" id="chatMessages">
       
@@ -257,7 +257,7 @@
   background-color: #2d2d2d25;
   border: none;
   border-radius: 8px;
-  color: white;
+  color: #66666650;
   padding: 12px 16px;
   padding-right: 80px;
   resize: none;
@@ -335,6 +335,13 @@
   }
 
   function initializeChat() {
+    var currentCount = UiContext.aiConvHist.count;
+    var maxCount = UiContext.aiConvHist.maxCount;
+    var countLeft = maxCount - currentCount;
+    const countLeftDisplay = document.getElementById('countLeftDisplay');
+    countLeftDisplay.textContent = countLeft;
+    
+
     console.log('DOM loaded');
     const openChat = document.getElementById('openChat');
     const closeChat = document.getElementById('closeChat');
@@ -348,6 +355,10 @@
       window.UiContext.aiConvHist.messages.forEach(message => {
         displayMessage(message);
       });
+    }
+
+    if(UiContext.aiConvHist.noAI){
+      openChat.style.opacity = '0';
     }
 
     let isChatVisible = false;
@@ -426,12 +437,20 @@ messageForm.addEventListener('submit', async (e) => {
   // Parse the JSON response
   const data = await response.json();// Check if response contains success flag
       if (data.success === true) {
+        
+        //update title number
+        const countLeftDisplay = document.getElementById('countLeftDisplay');
+        const currentCount = parseInt(countLeftDisplay.textContent);
+        const newCount = currentCount - 1;
+        countLeftDisplay.textContent = newCount;
+
         // Display AI response
         displayMessage({
           role: 'assistant',
           content: data.content.content,
           timestamp: Date.now()
         });
+
       } else {
         throw new Error(data.message || 'Failed to get AI response');
       }
@@ -467,7 +486,7 @@ messageForm.addEventListener('submit', async (e) => {
           <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpath d='M8 14s1.5 2 4 2 4-2 4-2'/%3E%3Cline x1='9' y1='9' x2='9.01' y2='9'/%3E%3Cline x1='15' y1='9' x2='15.01' y2='9'/%3E%3C/svg%3E" class="avatar" alt="AI Avatar">
           <span class="ai-name">Leaps AI-Coach:</span>
         </div>
-        <div class="message-content">${message.content}</div>
+        <div class="message-content">${Hydro.lib.markdown.render(message.content)}</div>
       `;
     } else {
       messageDiv.innerHTML = `

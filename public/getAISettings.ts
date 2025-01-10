@@ -1,6 +1,18 @@
 import { db, ObjectId, Context, Handler, PRIV, param, Types,  PERM, } from 'hydrooj';
 const coll = db.collection('ai_coach_settings');
-db.ensureIndexes(coll, { key: { domainId:1, uid: 1}, unique: true });
+db.ensureIndexes(coll, { key: { domainId: 1 }, unique: true });
+
+ async function initializeCollection() {
+    try {
+        await coll.dropIndex('uid_1');
+    } catch (e) {
+        // Index might not exist, ignore error
+    }
+    await db.ensureIndexes(coll, { key: { domainId: 1 }, unique: true });
+}
+
+initializeCollection().catch(console.error);
+
 
 // Helper functions similar to swiper addon
 export async function getAISettings(domainId: string) {
@@ -31,9 +43,9 @@ export async function getAISettings(domainId: string) {
     };
 }
 
-export async function setAICredential(domainId: string, useAI: boolean, count: number, key: string, url: string, model: string) {
+export async function setAICredential(domainId: string, useAI: Boolean, count: number, key: string, url: string, model: string) {
     await coll.updateOne(
-        { domainId }, 
+        {  domainId  }, 
         {
             $set: {
                 useAI,

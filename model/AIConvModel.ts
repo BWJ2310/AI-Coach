@@ -51,6 +51,31 @@ export class AIConvModel {
         return result._id;
     }
 
+    static async remove(
+        convId: string,
+    ): Promise<ObjectId> {
+        // Find the existing conversation document
+        const doc = await coll.findOne({convId});
+        
+        if (doc && doc.messages.length > 0) {
+            // Remove the last message from the array
+            doc.messages.pop();
+            // Update the document in the database
+            await coll.updateOne(
+                {convId},
+                { 
+                    $set: { 
+                        messages: doc.messages,
+                    } 
+                }
+            );
+            return doc._id;
+        }
+        
+        return null;
+    }
+    
+
     static async check(domainId: string): Promise<AIConvDoc> {
         const credentials = settingsColl.findOne({ domainId });
         return credentials.useAI

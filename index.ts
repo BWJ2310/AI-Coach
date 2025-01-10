@@ -1,21 +1,30 @@
 import { db, Context, Handler, ObjectId, DocumentModel, Filter, PRIV, param, Types, PERM } from 'hydrooj';
 import { AISettingsHandler } from './handler/AISettingsHandler';
-import { ConvHistHandler, AIMessageHandler } from './handler/coachHandler';
+import { AIMessageHandler } from './handler/coachHandler';
 import {ProblemDetailHandler} from 'hydrooj/src/handler/problem';
 import {AIConvModel} from './model/AIConvModel';
-import {AIConvDoc} from './model/AIConvModel';
+import { getAISettings } from './public/getAISettings';
 
 
 
-async function getConversation(uid, problemId, doaminId) {
+async function getConversation(uid, problemId, domainId) {
     var aiConvHist
-    console.log('geting  Ai Conversation for',  uid, problemId, doaminId);
-     try {
-        
-                aiConvHist = await AIConvModel.get(uid, problemId, doaminId);
-                if (!aiConvHist) {
-                    aiConvHist = await AIConvModel.add(uid, problemId, doaminId);
+    console.log('geting  Ai Conversation for',  uid, problemId, domainId);
+    try {
+        var maxCount = 10;
+        const aiSet = await getAISettings(domainId)
+                    if (!aiSet.useAI){
+                        return {
+                            noAI:true
+                        }
+                    } else {
+                        maxCount = Number(aiSet.count);
+                    }
+        aiConvHist = await AIConvModel.get(uid, problemId, domainId);
+        if (!aiConvHist) {
+                    aiConvHist = await AIConvModel.add(uid, problemId, domainId);
                 }
+                aiConvHist.maxCount = maxCount
                 return aiConvHist;
             } catch (error) {
                 return {
@@ -143,7 +152,8 @@ export async function apply(ctx: Context) {
         'ai.model': 'Model Name',
         'ai.temperature': 'Temperature',
         'chat.error': 'Failed to get AI response: {0}',
-        'ai_coach_settings': 'AI Settings'
+        'ai_coach_settings': 'AI Settings',
+        'count.left':'Number of message left: '
     });
 
     ctx.i18n.load('zh', {
@@ -154,8 +164,11 @@ export async function apply(ctx: Context) {
         'ai.model': '模型名称',
         'ai.temperature': '随机性',
         'chat.error': 'AI获取失败: {0}',
-        'ai_coach_settings': 'AI设置'
+        'ai_coach_settings': 'AI设置',
+        'count.left':'剩余对话次数：'
 });
+
+//bypass subscription
 
 
 }

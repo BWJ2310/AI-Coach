@@ -4,64 +4,77 @@
   <div class="section__header">
     <h1 class="section__title">{{ _('AI Coach Settings') }}</h1>
   </div>
+  <div class="section">
   <div class="section__body">
     <form method="post">
       <!-- Basic settings -->
       <div class="row">
-        <div class="medium-12 columns">
+        <div class="medium-10 columns form__item">
           <label class="checkbox">
-            <input type="checkbox" name="useAI" {% if credentials.useAI %}checked{% endif %}>
-            {{ _('ai.useAI') }}
+            <input type="checkbox" name="useAI" value="on" class="checkbox"
+              {%- if credentials.useAI %} checked{% endif -%}
+            >{{ _('ai.useAI') }}
           </label>
         </div>
       </div>
       
       <div class="row">
-        <div class="medium-12 columns">
+        <div class="medium-12 columns form__item">
           <label>
             {{ _('ai.count') }}
-            <input type="number" name="count" value="{{ credentials.count or '' }}">
+            <input type="number" class="textbox" name="count" value="{{ credentials.count or '' }}">
           </label>
         </div>
       </div>
 
       <!-- System settings -->
-      <div style="display: {{ 'block' if UiContext.domainId=='system' else 'none' }}">
+      <div style="display: {{ 'block' if UiContext.domainId=='system' else 'none' }}" class=" form__item">
         <div class="row">
-          <div class="medium-12 columns">
+          <div class="medium-12 columns form__item">
             <label>
               {{ _('ai.apikey') }}
-              <input type="text" name="key" value="{{ '*****************' if credentials.key and UiContext.domainId=='system' else ('' if UiContext.domainId==='system' else '-') }}">
+              <input type="text" class="textbox" name="key" value="{{ '*****************' if credentials.key and UiContext.domainId=='system' else ('' if UiContext.domainId==='system' else '-') }}">
             </label>
           </div>
         </div>
 
         <div class="row">
-          <div class="medium-12 columns">
+          <div class="medium-12 columns form__item">
             <label>
               {{ _('ai.url') }}
-              <input type="text" name="url" value="{{ credentials.url or '' if UiContext.domainId==='system' else '-' }}">
+              <input type="text" class="textbox" name="url" value="{{ credentials.url or '' if UiContext.domainId==='system' else '-' }}">
             </label>
           </div>
         </div>
 
         <div class="row">
-          <div class="medium-12 columns">
+          <div class="medium-12 columns form__item">
             <label>
               {{ _('ai.model') }}
-              <input type="text" name="model" value="{{ credentials.model or '' if UiContext.domainId==='system' else '-' }}">
+              <input type="text" class="textbox" name="model" value="{{ credentials.model or '' if UiContext.domainId==='system' else '-' }}">
             </label>
+            
           </div>
         </div>
       </div>
-
+      <div class="row">
+        <div class="medium-12 columns form__item">
+          <label>
+          </label>
+          <pre class="help-text" id="info"></pre>
+        </div>
+      </div>
+      
       <!-- Submit button -->
       <div class="row">
-        <div class="medium-12 columns">
-          <input type="submit" class="rounded primary button" value="{{ _('Save') }}">
+        <div class="medium-10 columns form__item end">
+          <button id="submit" type="submit" class="rounded primary button" value="update">
+            {{ _('Save') }}
+            <button>
         </div>
       </div>
     </form>
+  </div>
   </div>
 </div>
 {% endblock %}
