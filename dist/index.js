@@ -52,7 +52,7 @@ function getConversation(uid, problemId, domainId) {
                     console.log('geting  Ai Conversation for', uid, problemId, domainId);
                     _a.label = 1;
                 case 1:
-                    _a.trys.push([1, 6, , 7]);
+                    _a.trys.push([1, 8, , 9]);
                     maxCount = 10;
                     return [4 /*yield*/, getAISettings_1.getAISettings(domainId)];
                 case 2:
@@ -72,17 +72,23 @@ function getConversation(uid, problemId, domainId) {
                     return [4 /*yield*/, AIConvModel_1.AIConvModel.add(uid, problemId, domainId)];
                 case 4:
                     aiConvHist = _a.sent();
-                    _a.label = 5;
+                    return [3 /*break*/, 7];
                 case 5:
+                    if (!(aiConvHist.messages[aiConvHist.messages.length - 1].role === "user")) return [3 /*break*/, 7];
+                    return [4 /*yield*/, AIConvModel_1.AIConvModel.remove(aiConvHist.domainId, aiConvHist.uid, aiConvHist.problemId)];
+                case 6:
+                    aiConvHist = _a.sent();
+                    _a.label = 7;
+                case 7:
                     aiConvHist.maxCount = maxCount;
                     return [2 /*return*/, aiConvHist];
-                case 6:
+                case 8:
                     error_1 = _a.sent();
                     return [2 /*return*/, {
                             success: false,
                             error: error_1.message
                         }];
-                case 7: return [2 /*return*/];
+                case 9: return [2 /*return*/];
             }
         });
     });
@@ -149,6 +155,7 @@ function apply(ctx) {
     return __awaiter(this, void 0, void 0, function () {
         var originalGet;
         return __generator(this, function (_a) {
+            ctx.addStyle("\n            /* Active state */\n            .nav .nav__item.nav--active {\n              border-color:  #66ed5f !important;\n            }\n            .nav .nav__item.nav--active:before {\n              box-shadow: 0 0 30px  #66ed5f,\n                         0 0 30px  #66ed5f !important;\n        }");
             originalGet = problem_1.ProblemDetailHandler.prototype.get;
             problem_1.ProblemDetailHandler.prototype.get = function () {
                 var args = [];

@@ -74,42 +74,41 @@ var ConvHistHandler = /** @class */ (function (_super) {
         return _super !== null && _super.apply(this, arguments) || this;
     }
     ConvHistHandler.prototype.get = function (domainId, uid, problemId) {
-        var _a;
         return __awaiter(this, void 0, void 0, function () {
-            var aiSet, _b, _c, _d, error_1;
-            return __generator(this, function (_e) {
-                switch (_e.label) {
+            var aiSet, _a, _b, _c, error_1;
+            return __generator(this, function (_d) {
+                switch (_d.label) {
                     case 0:
-                        _e.trys.push([0, 7, , 8]);
+                        _d.trys.push([0, 7, , 8]);
                         return [4 /*yield*/, getAISettings_1.getAISettings(domainId)];
                     case 1:
-                        aiSet = _e.sent();
+                        aiSet = _d.sent();
                         if (!aiSet.useAI) {
                             return [2 /*return*/, {
                                     noAI: true
                                 }];
                         }
-                        _b = this;
+                        _a = this;
                         return [4 /*yield*/, AIConvModel_1.AIConvModel.get(uid, problemId, domainId)];
                     case 2:
-                        _b.aidoc = _e.sent();
+                        _a.aidoc = _d.sent();
                         if (!!this.aidoc) return [3 /*break*/, 4];
                         this.checkPriv(hydrooj_1.PRIV.PRIV_USER_PROFILE);
-                        _c = this;
+                        _b = this;
                         return [4 /*yield*/, AIConvModel_1.AIConvModel.add(uid, problemId, domainId)];
                     case 3:
-                        _c.aidoc = _e.sent();
-                        _e.label = 4;
+                        _b.aidoc = _d.sent();
+                        return [3 /*break*/, 6];
                     case 4:
-                        if (!(((_a = this.aidoc) === null || _a === void 0 ? void 0 : _a.messages[this.aidoc.messages.length - 1].role) === 'user')) return [3 /*break*/, 6];
-                        _d = this;
-                        return [4 /*yield*/, AIConvModel_1.AIConvModel.remove(this.aidoc._id)];
+                        if (!(this.aidoc.messages[this.aidoc.messages.length - 1].role === "user")) return [3 /*break*/, 6];
+                        _c = this;
+                        return [4 /*yield*/, AIConvModel_1.AIConvModel.remove(this.aidoc.domainId, this.aidoc.uid, this.aidoc.problemId)];
                     case 5:
-                        _d.aidoc = _e.sent();
-                        _e.label = 6;
+                        _c.aidoc = _d.sent();
+                        _d.label = 6;
                     case 6: return [2 /*return*/, this.aidoc];
                     case 7:
-                        error_1 = _e.sent();
+                        error_1 = _d.sent();
                         return [2 /*return*/, {
                                 success: false,
                                 error: error_1.message
@@ -134,7 +133,7 @@ var AIMessageHandler = /** @class */ (function (_super) {
     }
     AIMessageHandler.prototype.post = function (content, convId) {
         return __awaiter(this, void 0, void 0, function () {
-            var domainId, code, aiResponse, error_2;
+            var domainId, code, codeLang, aiResponse, error_2;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
@@ -154,7 +153,8 @@ var AIMessageHandler = /** @class */ (function (_super) {
                         _a.sent();
                         domainId = content.domainId;
                         code = content.code;
-                        return [4 /*yield*/, this.getAiResponse(content.convId, domainId, code)];
+                        codeLang = content.codeLang;
+                        return [4 /*yield*/, this.getAiResponse(content.convId, domainId, code, codeLang)];
                     case 3:
                         aiResponse = _a.sent();
                         if (!aiResponse) return [3 /*break*/, 6];
@@ -200,7 +200,7 @@ var AIMessageHandler = /** @class */ (function (_super) {
             });
         });
     };
-    AIMessageHandler.prototype.getAiResponse = function (convId, domainId, code) {
+    AIMessageHandler.prototype.getAiResponse = function (convId, domainId, code, codeLang) {
         var _a;
         return __awaiter(this, void 0, void 0, function () {
             var aiSet, convHist, aiCredentials, problem, description, systemMessage, tempAiConv, requestBody, fullRequstBody, response, error, data, message, error_3;
@@ -212,7 +212,7 @@ var AIMessageHandler = /** @class */ (function (_super) {
                         return [4 /*yield*/, coll.findOne({ _id: new hydrooj_1.ObjectId(convId) })];
                     case 2:
                         convHist = _b.sent();
-                        console.log('convHist is', convHist);
+                        //log('convHist is', convHist);
                         if (convHist.count >= aiSet.count) {
                             return [2 /*return*/, {
                                     role: "assistant", content: "Max conversation reached"
@@ -221,22 +221,22 @@ var AIMessageHandler = /** @class */ (function (_super) {
                         return [4 /*yield*/, getAISettings_1.getAISettings("system")];
                     case 3:
                         aiCredentials = (_b.sent()) || { key: null, url: null, model: null };
-                        console.log("credentials at " + domainId + " is " + aiCredentials.key + " " + aiCredentials.url + " " + aiCredentials.model);
+                        //console.log(`credentials at ${domainId} is ${aiCredentials.key} ${aiCredentials.url} ${aiCredentials.model}`);
                         if (!aiCredentials.key || !aiCredentials.url || !aiCredentials.model) {
                             return [2 /*return*/, { role: "assistant", content: "AI credentials not found", timestamp: Date.now() }];
                         }
-                        return [4 /*yield*/, collProblem.findOne({ pid: convHist.problemId })];
+                        return [4 /*yield*/, collProblem.findOne({ pid: convHist.problemId })
+                            //console.log('problem is', problem);
+                        ];
                     case 4:
                         problem = _b.sent();
-                        console.log('problem is', problem);
+                        //console.log('problem is', problem);
                         if (!problem)
                             throw new Error('Problem not found');
                         description = JSON.parse(problem.content).zh;
-                        console.log('description is', description);
                         systemMessage = { role: "system", content: JSON.stringify("You are an expert assistant that helps with code analysis and debugging. Be precise and concise. Here's the problem description:" +
                                 description +
-                                "User's code or input:" + code) };
-                        console.log("systemMessage is ", systemMessage);
+                                "User's code or input:" + code + "User's current selected code language is: " + codeLang + ", so please use the selected code language to provide assistance. \u4F60\u7684\u56DE\u7B54\u8BED\u8A00\u548C\u7528\u6237\u4F7F\u7528\u7684\u8BED\u8A00\u76F8\u540C") };
                         tempAiConv = __spreadArrays([systemMessage], (convHist.messages || []).map(function (_a) {
                             var role = _a.role, content = _a.content;
                             return ({
@@ -250,7 +250,6 @@ var AIMessageHandler = /** @class */ (function (_super) {
                             temperature: 0.7,
                             max_tokens: 1000
                         });
-                        console.log("request body is ", requestBody);
                         fullRequstBody = {
                             method: "POST",
                             headers: {
@@ -259,7 +258,6 @@ var AIMessageHandler = /** @class */ (function (_super) {
                             },
                             body: requestBody
                         };
-                        console.log('fullRequstBody is ', JSON.stringify(fullRequstBody));
                         _b.label = 5;
                     case 5:
                         _b.trys.push([5, 10, , 11]);
@@ -275,7 +273,7 @@ var AIMessageHandler = /** @class */ (function (_super) {
                     case 9:
                         data = _b.sent();
                         message = { role: "assistant", content: data.choices[0].message.content, timestamp: Date.now() };
-                        console.log(message);
+                        //log(message)
                         return [2 /*return*/, message];
                     case 10:
                         error_3 = _b.sent();

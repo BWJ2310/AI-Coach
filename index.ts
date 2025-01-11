@@ -23,6 +23,8 @@ async function getConversation(uid, problemId, domainId) {
         aiConvHist = await AIConvModel.get(uid, problemId, domainId);
         if (!aiConvHist) {
                     aiConvHist = await AIConvModel.add(uid, problemId, domainId);
+                }else if (aiConvHist.messages[aiConvHist.messages.length - 1].role === "user"){
+                    aiConvHist = await AIConvModel.remove(aiConvHist.domainId, aiConvHist.uid, aiConvHist.problemId)
                 }
                 aiConvHist.maxCount = maxCount
                 return aiConvHist;
@@ -97,6 +99,7 @@ export async function apply(ctx: Context) {
 
 export async function apply(ctx: Context) {
     const originalGet = ProblemDetailHandler.prototype.get;
+
     
     ProblemDetailHandler.prototype.get = async function (...args) {
         // Call the original get method first
@@ -167,8 +170,4 @@ export async function apply(ctx: Context) {
         'ai_coach_settings': 'AI设置',
         'count.left':'剩余对话次数：'
 });
-
-//bypass subscription
-
-
 }

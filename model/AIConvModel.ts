@@ -42,37 +42,47 @@ export class AIConvModel {
             count: 0,
             messages: [{ 
                 role: "assistant", 
-                content: "hello, how can I help you with?", 
+                content: "hello, what can I help you with?", 
                 timestamp: Date.now() 
             }],
         };
         
         const result = await coll.insertOne(payload);
-        return result._id;
+        return result
     }
 
     static async remove(
-        convId: string,
+        domainId: string,
+        uid:number,
+        problemId:string
     ): Promise<ObjectId> {
-        // Find the existing conversation document
-        const doc = await coll.findOne({convId});
-        
-        if (doc && doc.messages.length > 0) {
-            // Remove the last message from the array
-            doc.messages.pop();
-            // Update the document in the database
-            await coll.updateOne(
-                {convId},
-                { 
-                    $set: { 
-                        messages: doc.messages,
-                    } 
-                }
-            );
-            return doc._id;
+        try {
+            
+            // Find the existing conversation document using _id
+            const doc = await coll.findOne({domainId, uid, problemId });
+            
+            if (doc && doc.messages.length > 0) {
+                // Remove the last message from the array
+                doc.messages.pop();
+                // Update the document in the database using _id
+                await coll.updateOne(
+                    { domainId, uid, problemId },
+                    { 
+                        $set: { 
+                            messages: doc.messages,
+                        } 
+                    }
+                );
+                console.log("message deleted for ", doc._id)
+                return doc;
+            }
+            
+            return null;
+        } catch (err) {
+            // Handle invalid ObjectId format
+            console.error('Invalid ObjectId format:', err);
+            return null;
         }
-        
-        return null;
     }
     
 

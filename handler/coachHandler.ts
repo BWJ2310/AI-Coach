@@ -7,39 +7,6 @@ const coll = db.collection('ai_conv');
 const collProblem = db.collection('document');
 
 
-
-export class ConvHistHandler extends Handler {
-    aidoc?: AIConvDoc;
-    @param('uid', Types.Int)
-    @param('domainId', Types.string)
-    @param('problemId', Types.string)
-    async get(domainId: string, uid: number, problemId: string) {
-        try {
-            const aiSet = await getAISettings(domainId)
-            if (!aiSet.useAI){
-                return {
-                    noAI:true
-                }
-            }
-            this.aidoc = await AIConvModel.get( uid, problemId, domainId);
-            if (!this.aidoc) {
-                this.checkPriv(PRIV.PRIV_USER_PROFILE);
-                this.aidoc = await AIConvModel.add(uid, problemId, domainId);
-            }
-            if (this.aidoc?.messages[this.aidoc.messages.length - 1].role === 'user'){
-                this.aidoc = await AIConvModel.remove(this.aidoc._id)
-            }
-            return this.aidoc;
-        } catch (error) {
-            return {
-                success: false,
-                error: error.message
-            };
-        }
-    }
-}
-
-
 export class AIMessageHandler extends Handler {
     aidoc ?: AIConvDoc
 
@@ -58,7 +25,8 @@ export class AIMessageHandler extends Handler {
             // Get AI response
             const domainId = content.domainId;
             const code = content.code;  
-            const aiResponse = await this.getAiResponse(content.convId, domainId, code);
+            const codeLang = content.codeLang;
+            const aiResponse = await this.getAiResponse(content.convId, domainId, code, codeLang);
             if (aiResponse){
                 await this.sendMessage(convId, aiResponse);
                 await AIConvModel.inc(convId);
@@ -83,11 +51,11 @@ export class AIMessageHandler extends Handler {
     }
 
 
-    async getAiResponse(convId:string,  domainId: string, code: string) {
+    async getAiResponse(convId:string,  domainId: string, code: string, codeLang:string) {
             // Get credentials from getAISettings
             const aiSet = await getAISettings(domainId) || {useAI: true, count: 10};
             const convHist = await coll.findOne({ _id: new ObjectId(convId) });
-            console.log('convHist is', convHist);
+            //log('convHist is', convHist);
 
             if (convHist.count>=aiSet.count){
                 return{
@@ -95,22 +63,22 @@ export class AIMessageHandler extends Handler {
                 };
             }
             const aiCredentials = await getAISettings("system") || {key: null, url: null, model: null};
-            console.log(`credentials at ${domainId} is ${aiCredentials.key} ${aiCredentials.url} ${aiCredentials.model}`);
+            //console.log(`credentials at ${domainId} is ${aiCredentials.key} ${aiCredentials.url} ${aiCredentials.model}`);
             if (!aiCredentials.key || !aiCredentials.url || !aiCredentials.model) {
                 return {role: "assistant", content:"AI credentials not found", timestamp: Date.now()};
             }
             const problem = await collProblem.findOne({pid:convHist.problemId})
-            console.log('problem is', problem);
+            //console.log('problem is', problem);
             if (!problem) throw new Error('Problem not found');
             const description = JSON.parse(problem.content).zh;
-            console.log('description is', description);     
+            //console.log('description is', description);     
 
 
             const systemMessage = {role:"system", content:JSON.stringify(`You are an expert assistant that helps with code analysis and debugging. Be precise and concise. Here's the problem description:`+ 
                 description+
-                `User's code or input:`  + code)};
+                `User's code or input:`  + code + `User's current selected code language is: ` + codeLang +`, so please use the selected code language to provide assistance. 你的回答语言和用户使用的语言相同`)};
 
-            console.log("systemMessage is ", systemMessage)
+            //console.log("systemMessage is ", systemMessage)
 
             let tempAiConv = [ systemMessage,
                 ...(convHist.messages || []).map(({ role, content }) => ({
@@ -126,7 +94,7 @@ export class AIMessageHandler extends Handler {
                 max_tokens: 1000,
             });
 
-            console.log("request body is ", requestBody)
+            //console.log("request body is ", requestBody)
             
             let fullRequstBody = {
                 method: "POST",
@@ -137,7 +105,7 @@ export class AIMessageHandler extends Handler {
                 body: requestBody
             }
 
-            console.log('fullRequstBody is ', JSON.stringify(fullRequstBody))
+           //console.log('fullRequstBody is ', JSON.stringify(fullRequstBody))
 
             try {
                 const response = await fetch(aiCredentials.url, fullRequstBody);
@@ -149,7 +117,7 @@ export class AIMessageHandler extends Handler {
             
                 const data = await response.json();
                 const message = { role: "assistant", content: data.choices[0].message.content, timestamp: Date.now()};
-                console.log(message)
+                //log(message)
                 return message;
             
             } catch (error) {
