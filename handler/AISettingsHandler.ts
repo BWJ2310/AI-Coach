@@ -3,7 +3,7 @@ import {getAISettings, setAICredential } from '../public/getAISettings'
 
 export class AISettingsHandler extends Handler {
     async prepare() {
-        this.checkPerm(PERM.PERM_EDIT_DOMAIN);
+        this.checkPriv(PRIV.PRIV_USER_PROFILE);
     }
 
     async get({domainId}) {
